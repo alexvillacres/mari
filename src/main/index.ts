@@ -2,6 +2,7 @@ import { app, shell, BrowserWindow, ipcMain, Tray, nativeImage, Menu } from 'ele
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import * as db from './database'
 
 let tray: Tray | null = null
 let trayWindow: BrowserWindow | null = null
@@ -9,12 +10,14 @@ let trayWindow: BrowserWindow | null = null
 function createTrayWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 400,
-    height: 200,
+    height: 450,
     show: false,
     frame: false,
     resizable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
+    transparent: true,
+    hasShadow: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
@@ -150,6 +153,9 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  // Initialize database
+  db.initDatabase()
+
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 
@@ -158,6 +164,53 @@ app.whenReady().then(() => {
     if (trayWindow) {
       trayWindow.hide()
     }
+  })
+
+  // Database IPC handlers
+  ipcMain.handle('db:get-projects', () => {
+    return db.getAllProjects()
+  })
+
+  ipcMain.handle('db:create-project', (_event, name: string) => {
+    return db.createProject(name)
+  })
+
+  ipcMain.handle('db:delete-project', (_event, id: number) => {
+    db.deleteProject(id)
+  })
+
+  ipcMain.handle('db:start-tracking', (_event, projectId: number) => {
+    // End any active time entry first
+    const activeEntry = db.getActiveTimeEntry()
+    if (activeEntry) {
+      db.endTimeEntry(activeEntry.id)
+    }
+    // Start new time entry
+    return db.createTimeEntry(projectId)
+  })
+
+  ipcMain.handle('db:stop-tracking', () => {
+    const activeEntry = db.getActiveTimeEntry()
+    if (activeEntry) {
+      return db.endTimeEntry(activeEntry.id)
+    }
+    return null
+  })
+
+  ipcMain.handle('db:get-active-entry', () => {
+    return db.getActiveTimeEntry()
+  })
+
+  ipcMain.handle('db:get-daily-summary', (_event, date: string) => {
+    return db.getDailySummary(date)
+  })
+
+  ipcMain.handle('db:get-settings', () => {
+    return db.getAllSettings()
+  })
+
+  ipcMain.handle('db:set-setting', (_event, key: string, value: string) => {
+    db.setSetting(key, value)
   })
 
   // Create system tray (menubar icon)

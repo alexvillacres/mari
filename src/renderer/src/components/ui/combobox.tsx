@@ -28,6 +28,8 @@ export interface ComboboxProps {
   placeholder?: string
   searchPlaceholder?: string
   emptyText?: string
+  allowCreate?: boolean
+  onCreateNew?: (searchTerm: string) => void
 }
 
 export function Combobox({
@@ -37,8 +39,11 @@ export function Combobox({
   placeholder = "Select option...",
   searchPlaceholder = "Search...",
   emptyText = "No option found.",
+  allowCreate = false,
+  onCreateNew,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
+  const [searchTerm, setSearchTerm] = React.useState("")
 
   const selectedOption = options.find((option) => option.value === value)
 
@@ -57,9 +62,27 @@ export function Combobox({
       </PopoverTrigger>
       <PopoverContent className="w-full p-0" align="start">
         <Command>
-          <CommandInput placeholder={searchPlaceholder} />
+          <CommandInput
+            placeholder={searchPlaceholder}
+            onValueChange={setSearchTerm}
+          />
           <CommandList>
-            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandEmpty>
+              {allowCreate && searchTerm.trim() ? (
+                <CommandItem
+                  onSelect={() => {
+                    onCreateNew?.(searchTerm.trim())
+                    setSearchTerm("")
+                    setOpen(false)
+                  }}
+                  className="cursor-pointer"
+                >
+                  Create "{searchTerm.trim()}"
+                </CommandItem>
+              ) : (
+                emptyText
+              )}
+            </CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem

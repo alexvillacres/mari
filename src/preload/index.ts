@@ -5,6 +5,19 @@ import { electronAPI } from '@electron-toolkit/preload'
 const api = {
   hideTrayWindow: () => {
     ipcRenderer.send('tray-window-hide')
+  },
+  // Database APIs
+  db: {
+    getProjects: () => ipcRenderer.invoke('db:get-projects'),
+    createProject: (name: string) => ipcRenderer.invoke('db:create-project', name),
+    deleteProject: (id: number) => ipcRenderer.invoke('db:delete-project', id),
+    startTracking: (projectId: number) => ipcRenderer.invoke('db:start-tracking', projectId),
+    stopTracking: () => ipcRenderer.invoke('db:stop-tracking'),
+    getActiveEntry: () => ipcRenderer.invoke('db:get-active-entry'),
+    getDailySummary: (date: string) => ipcRenderer.invoke('db:get-daily-summary', date),
+    getSettings: () => ipcRenderer.invoke('db:get-settings'),
+    setSetting: (key: string, value: string) =>
+      ipcRenderer.invoke('db:set-setting', key, value)
   }
 }
 
