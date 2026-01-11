@@ -26,6 +26,7 @@ declare global {
     electron: ElectronAPI
     api: {
       hideTrayWindow: () => void
+      resetSchedulerTimer: () => void
       db: {
         getProjects: () => Promise<Project[]>
         createProject: (name: string) => Promise<Project>
@@ -36,6 +37,16 @@ declare global {
         getDailySummary: (date: string) => Promise<DailySummary[]>
         getSettings: () => Promise<Record<string, string>>
         setSetting: (key: string, value: string) => Promise<void>
+        continueTracking: () => Promise<{ success: boolean }>
+        getTimeEntriesByDate: (date: string) => Promise<DailySummary[]>
+        getTimeEntriesByProject: (projectId: number, date: string) => Promise<TimeEntry[]>
+        updateTimeEntry: (id: number, startedAt: string, endedAt: string) => Promise<TimeEntry>
+        deleteTimeEntry: (id: number) => Promise<void>
+        createManualEntry: (
+          projectId: number,
+          startedAt: string,
+          endedAt: string
+        ) => Promise<TimeEntry>
       }
     }
   }

@@ -1,11 +1,13 @@
-import { app, shell, BrowserWindow, ipcMain, Tray, nativeImage, Menu } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, Tray, nativeImage, Menu, screen } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import * as db from './database'
+import { PromptScheduler } from './scheduler'
 
 let tray: Tray | null = null
 let trayWindow: BrowserWindow | null = null
+let scheduler: PromptScheduler | null = null
 
 function createTrayWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -41,6 +43,57 @@ function createTrayWindow(): BrowserWindow {
   return window
 }
 
+function showTrayWindow(view: 'review' | 'prompt', projectId?: number): void {
+  if (!trayWindow) {
+    trayWindow = createTrayWindow()
+  }
+
+  // Build URL with query params
+  const params = new URLSearchParams({ tray: 'true', view })
+  if (projectId) params.set('projectId', String(projectId))
+
+  const url = is.dev
+    ? `${process.env['ELECTRON_RENDERER_URL']}?${params}`
+    : `file://${join(__dirname, '../renderer/index.html')}?${params}`
+
+  trayWindow.loadURL(url)
+
+  // Position window based on view type
+  positionTrayWindow(view)
+
+  trayWindow.show()
+  trayWindow.focus()
+}
+
+function positionTrayWindow(view: 'review' | 'prompt'): void {
+  if (!trayWindow) return
+
+  if (view === 'review') {
+    // Position near tray icon
+    if (!tray) return
+    const bounds = tray.getBounds()
+    const windowBounds = trayWindow.getBounds()
+
+    // Center the window horizontally relative to the tray icon
+    const x = Math.round(bounds.x - windowBounds.width / 2 + bounds.width / 2)
+    // Position above the tray icon (macOS) or below (Windows/Linux)
+    const y =
+      process.platform === 'darwin'
+        ? Math.round(bounds.y - windowBounds.height - 10)
+        : Math.round(bounds.y + bounds.height + 10)
+
+    trayWindow.setPosition(x, y, false)
+  } else {
+    // Center on screen for Prompt View
+    const display = screen.getPrimaryDisplay()
+    const { width, height } = display.workAreaSize
+    const windowBounds = trayWindow.getBounds()
+    const x = Math.round(width / 2 - windowBounds.width / 2)
+    const y = Math.round(height / 2 - windowBounds.height / 2)
+    trayWindow.setPosition(x, y, false)
+  }
+}
+
 function createTray(): void {
   // Create tray icon from PNG
   // Use the resources path relative to the app root
@@ -72,30 +125,7 @@ function createTray(): void {
   tray.setToolTip('Binto')
 
   tray.on('click', () => {
-    if (!trayWindow) {
-      trayWindow = createTrayWindow()
-    }
-
-    if (trayWindow.isVisible()) {
-      trayWindow.hide()
-    } else {
-      // Position the window near the tray icon
-      if (!tray) return
-      const bounds = tray.getBounds()
-      const windowBounds = trayWindow.getBounds()
-
-      // Center the window horizontally relative to the tray icon
-      const x = Math.round(bounds.x - windowBounds.width / 2 + bounds.width / 2)
-      // Position above the tray icon (macOS) or below (Windows/Linux)
-      const y =
-        process.platform === 'darwin'
-          ? Math.round(bounds.y - windowBounds.height - 10)
-          : Math.round(bounds.y + bounds.height + 10)
-
-      trayWindow.setPosition(x, y, false)
-      trayWindow.show()
-      trayWindow.focus()
-    }
+    showTrayWindow('review')
   })
 
   // No context menu - user requested to disable it
@@ -213,8 +243,66 @@ app.whenReady().then(() => {
     db.setSetting(key, value)
   })
 
+  ipcMain.handle('db:get-time-entries-by-date', (_event, date: string) => {
+    // This will be implemented when we add the database method
+    // For now, we can use getDailySummary
+    return db.getDailySummary(date)
+  })
+
+  ipcMain.handle('db:continue-tracking', () => {
+    // Update lastPromptAt without modifying time entry
+    db.setSetting('lastPromptAt', new Date().toISOString())
+    return { success: true }
+  })
+
+  ipcMain.handle('db:get-time-entries-by-project', (_event, projectId: number, date: string) => {
+    return db.getTimeEntriesByProjectAndDate(projectId, date)
+  })
+
+  ipcMain.handle(
+    'db:update-time-entry',
+    (_event, id: number, startedAt: string, endedAt: string) => {
+      return db.updateTimeEntry(id, startedAt, endedAt)
+    }
+  )
+
+  ipcMain.handle('db:delete-time-entry', (_event, id: number) => {
+    db.deleteTimeEntry(id)
+  })
+
+  ipcMain.handle(
+    'db:create-manual-entry',
+    (_event, projectId: number, startedAt: string, endedAt: string) => {
+      return db.createManualTimeEntry(projectId, startedAt, endedAt)
+    }
+  )
+
+  ipcMain.on('scheduler-reset-timer', () => {
+    if (scheduler) {
+      scheduler.resetTimer()
+    }
+  })
+
   // Create system tray (menubar icon)
   createTray()
+
+  // Show prompt view on app load
+  setTimeout(() => {
+    // Get active entry or use first project if available
+    const activeEntry = db.getActiveTimeEntry()
+    if (activeEntry) {
+      showTrayWindow('prompt', activeEntry.project_id)
+    } else {
+      // Show prompt without project ID (will need to select/create one)
+      showTrayWindow('prompt')
+    }
+  }, 1000)
+
+  // Initialize scheduler
+  scheduler = new PromptScheduler()
+  scheduler.start((projectId: number) => {
+    showTrayWindow('prompt', projectId)
+  })
 
   // Optionally create main window (comment out if you only want tray)
   // createWindow()

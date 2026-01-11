@@ -9,6 +9,7 @@ Mari is a minimalist Time Tracker app for macOS built with Electron, React, Type
 ## Development Commands
 
 ### Package Manager
+
 This project uses `pnpm` as its package manager.
 
 ```bash
@@ -38,6 +39,7 @@ pnpm build:unpack          # Build without packaging (for testing)
 ## Architecture
 
 ### Three-Process Model
+
 Electron apps use a multi-process architecture. This project follows the standard pattern:
 
 1. **Main Process** (`src/main/`)
@@ -59,6 +61,7 @@ Electron apps use a multi-process architecture. This project follows the standar
 ### Tray-Based Application Pattern
 
 This app is **tray-only** (no main window by default):
+
 - Main window creation is commented out in `src/main/index.ts:167`
 - Dock icon is hidden on macOS (`app.dock.hide()`)
 - App stays running when all windows close
@@ -67,6 +70,7 @@ This app is **tray-only** (no main window by default):
 ### Window Routing Pattern
 
 The app uses a single HTML file with query parameter routing:
+
 - Normal window: `index.html` → renders `App` component
 - Tray window: `index.html?tray=true` → renders `TrayWindow` component
 - Routing logic: `src/renderer/src/main.tsx` checks `URLSearchParams`
@@ -74,10 +78,12 @@ The app uses a single HTML file with query parameter routing:
 ### IPC Communication
 
 Current IPC channels:
+
 - `ping`: Test channel (renderer → main)
 - `tray-window-hide`: Closes tray window (exposed as `window.api.hideTrayWindow()`)
 
 To add new IPC:
+
 1. Add handler in `src/main/index.ts` (use `ipcMain.on()` or `ipcMain.handle()`)
 2. Expose function in `src/preload/index.ts` via `api` object
 3. Update types in `src/preload/index.d.ts`
@@ -85,6 +91,7 @@ To add new IPC:
 ### UI Components
 
 Uses shadcn/ui component system:
+
 - Config: `components.json` with "new-york" style
 - Components installed in `src/renderer/src/components/ui/`
 - Utility function `cn()` in `src/renderer/src/lib/utils.ts` for className merging
@@ -94,6 +101,7 @@ Uses shadcn/ui component system:
 ### Path Aliases
 
 TypeScript/Vite aliases configured:
+
 - `@renderer/*` → `src/renderer/src/*`
 - Components: `@renderer/components`
 - Utils: `@renderer/lib/utils`
@@ -116,6 +124,7 @@ TypeScript/Vite aliases configured:
 ## Database
 
 `better-sqlite3` is installed but not yet integrated into the codebase. When implementing database features:
+
 - Initialize in main process (Node.js context)
 - Expose database operations via IPC handlers
 - Store database file in `app.getPath('userData')`
@@ -123,6 +132,7 @@ TypeScript/Vite aliases configured:
 ## Resources
 
 Icon files in `resources/`:
+
 - `icon.png`: Default app icon
 - `binto.png`: Custom tray icon (22x22 on macOS, 16x16 elsewhere)
 

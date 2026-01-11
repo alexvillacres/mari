@@ -62,9 +62,7 @@ export function initDatabase(): Database.Database {
   `)
 
   // Initialize default settings if they don't exist
-  const insertSetting = db.prepare(
-    'INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)'
-  )
+  const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
   insertSetting.run('promptIntervalMinutes', '20')
   insertSetting.run('idleThresholdMinutes', '5')
 
@@ -113,9 +111,7 @@ export function deleteProject(id: number): void {
 // Time entry operations
 export function createTimeEntry(projectId: number, startedAt?: string): TimeEntry {
   const db = getDatabase()
-  const stmt = db.prepare(
-    'INSERT INTO time_entries (project_id, started_at) VALUES (?, ?)'
-  )
+  const stmt = db.prepare('INSERT INTO time_entries (project_id, started_at) VALUES (?, ?)')
   const timestamp = startedAt || new Date().toISOString()
   const result = stmt.run(projectId, timestamp)
 
@@ -133,7 +129,9 @@ export function getTimeEntryById(id: number): TimeEntry | undefined {
 
 export function getActiveTimeEntry(): TimeEntry | undefined {
   const db = getDatabase()
-  const stmt = db.prepare('SELECT * FROM time_entries WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1')
+  const stmt = db.prepare(
+    'SELECT * FROM time_entries WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1'
+  )
   return stmt.get() as TimeEntry | undefined
 }
 
@@ -150,9 +148,7 @@ export function endTimeEntry(id: number, endedAt?: string): TimeEntry {
   const endTime = new Date(timestamp).getTime()
   const durationSeconds = Math.floor((endTime - startTime) / 1000)
 
-  const stmt = db.prepare(
-    'UPDATE time_entries SET ended_at = ?, duration_seconds = ? WHERE id = ?'
-  )
+  const stmt = db.prepare('UPDATE time_entries SET ended_at = ?, duration_seconds = ? WHERE id = ?')
   stmt.run(timestamp, durationSeconds, id)
 
   return getTimeEntryById(id)!
@@ -166,6 +162,58 @@ export function getTimeEntriesByDate(date: string): TimeEntry[] {
     ORDER BY started_at ASC
   `)
   return stmt.all(date) as TimeEntry[]
+}
+
+export function getTimeEntriesByProjectAndDate(projectId: number, date: string): TimeEntry[] {
+  const db = getDatabase()
+  const stmt = db.prepare(`
+    SELECT * FROM time_entries
+    WHERE project_id = ? AND DATE(started_at) = DATE(?)
+    ORDER BY started_at ASC
+  `)
+  return stmt.all(projectId, date) as TimeEntry[]
+}
+
+export function updateTimeEntry(id: number, startedAt: string, endedAt: string): TimeEntry {
+  const db = getDatabase()
+
+  const startTime = new Date(startedAt).getTime()
+  const endTime = new Date(endedAt).getTime()
+  const durationSeconds = Math.floor((endTime - startTime) / 1000)
+
+  const stmt = db.prepare(
+    'UPDATE time_entries SET started_at = ?, ended_at = ?, duration_seconds = ? WHERE id = ?'
+  )
+  stmt.run(startedAt, endedAt, durationSeconds, id)
+
+  return getTimeEntryById(id)!
+}
+
+export function deleteTimeEntry(id: number): void {
+  const db = getDatabase()
+  const stmt = db.prepare('DELETE FROM time_entries WHERE id = ?')
+  stmt.run(id)
+}
+
+export function createManualTimeEntry(
+  projectId: number,
+  startedAt: string,
+  endedAt: string
+): TimeEntry {
+  const db = getDatabase()
+
+  const startTime = new Date(startedAt).getTime()
+  const endTime = new Date(endedAt).getTime()
+  const durationSeconds = Math.floor((endTime - startTime) / 1000)
+
+  const stmt = db.prepare(
+    'INSERT INTO time_entries (project_id, started_at, ended_at, duration_seconds) VALUES (?, ?, ?, ?)'
+  )
+  const result = stmt.run(projectId, startedAt, endedAt, durationSeconds)
+
+  updateProjectLastUsed(projectId)
+
+  return getTimeEntryById(result.lastInsertRowid as number)!
 }
 
 export function getDailySummary(date: string): DailySummary[] {

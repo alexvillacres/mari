@@ -6,6 +6,9 @@ const api = {
   hideTrayWindow: () => {
     ipcRenderer.send('tray-window-hide')
   },
+  resetSchedulerTimer: () => {
+    ipcRenderer.send('scheduler-reset-timer')
+  },
   // Database APIs
   db: {
     getProjects: () => ipcRenderer.invoke('db:get-projects'),
@@ -16,8 +19,16 @@ const api = {
     getActiveEntry: () => ipcRenderer.invoke('db:get-active-entry'),
     getDailySummary: (date: string) => ipcRenderer.invoke('db:get-daily-summary', date),
     getSettings: () => ipcRenderer.invoke('db:get-settings'),
-    setSetting: (key: string, value: string) =>
-      ipcRenderer.invoke('db:set-setting', key, value)
+    setSetting: (key: string, value: string) => ipcRenderer.invoke('db:set-setting', key, value),
+    continueTracking: () => ipcRenderer.invoke('db:continue-tracking'),
+    getTimeEntriesByDate: (date: string) => ipcRenderer.invoke('db:get-time-entries-by-date', date),
+    getTimeEntriesByProject: (projectId: number, date: string) =>
+      ipcRenderer.invoke('db:get-time-entries-by-project', projectId, date),
+    updateTimeEntry: (id: number, startedAt: string, endedAt: string) =>
+      ipcRenderer.invoke('db:update-time-entry', id, startedAt, endedAt),
+    deleteTimeEntry: (id: number) => ipcRenderer.invoke('db:delete-time-entry', id),
+    createManualEntry: (projectId: number, startedAt: string, endedAt: string) =>
+      ipcRenderer.invoke('db:create-manual-entry', projectId, startedAt, endedAt)
   }
 }
 
